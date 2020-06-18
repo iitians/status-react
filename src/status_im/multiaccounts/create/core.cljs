@@ -71,6 +71,12 @@
 (fx/defn create-multiaccount
   [{:keys [db]}]
   (let [{:keys [selected-id key-code]} (:intro-wizard db)
+        key-uid (reduce
+                 (fn [_ {:keys [id key-uid]}]
+                   (when (= id selected-id)
+                     (reduced key-uid)))
+                 nil
+                 (get-in db [:intro-wizard :multiaccounts]))
         hashed-password (ethereum/sha3 (security/safe-unmask-data key-code))
         callback (fn [result]
                    (let [derived-data (normalize-derived-data-keys (types/json->clj result))
@@ -84,7 +90,7 @@
                                                               (merge derived-whisper {:name name :photo-path photo-path}))]
                           (re-frame/dispatch [::store-multiaccount-success
                                               key-code derived-data-extended]))))))]
-    {::store-multiaccount [selected-id hashed-password callback]}))
+    {::store-multiaccount [selected-id key-uid hashed-password callback]}))
 
 (fx/defn prepare-intro-wizard
   [{:keys [db] :as cofx}]
@@ -400,9 +406,10 @@
 
 (re-frame/reg-fx
  ::store-multiaccount
- (fn [[id hashed-password callback]]
+ (fn [[id key-uid hashed-password callback]]
    (status/multiaccount-store-derived
     id
+    key-uid
     [constants/path-wallet-root
      constants/path-eip1581
      constants/path-whisper

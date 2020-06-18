@@ -256,13 +256,44 @@ RCT_EXPORT_METHOD(multiAccountReset:(RCTResponseSenderBlock)callback) {
     callback(@[result]);
 }
 
+//////////////////////////////////////////////////////////////////// addMultiaccountKeystoreDir
+-(NSString *) addMultiaccountKeystoreDir:(NSString *)jsonString {
+    NSData *data = [jsonString dataUsingEncoding:NSUTF8StringEncoding];
+    NSMutableDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSURL *rootUrl =[[fileManager
+                      URLsForDirectory:NSLibraryDirectory inDomains:NSUserDomainMask]
+                     lastObject];
+
+    NSURL *commonKeystoreDir = [rootUrl URLByAppendingPathComponent:@"keystore"];
+    NSString *keyUID = [json valueForKey:@"keyUID"];
+    NSURL *multiaccountKeystoreDir = [commonKeystoreDir URLByAppendingPathComponent:keyUID];
+    if(![fileManager fileExistsAtPath:multiaccountKeystoreDir.path]){
+        NSLog(@"create multiaccount keystore dir");
+        [fileManager createDirectoryAtURL:multiaccountKeystoreDir
+              withIntermediateDirectories:YES
+                               attributes:nil
+                                    error:nil];
+    }
+    [json setValue:multiaccountKeystoreDir.path
+            forKey:@"keyStoreDir"];
+    [json removeObjectForKey:@"keyUID"];
+    NSString *params = [json bv_jsonStringWithPrettyPrint:NO];
+
+    NSLog(@"params with keyStoreDir: %@", params);
+
+    return params;
+}
+
 //////////////////////////////////////////////////////////////////// multiAccountStoreDerived
 RCT_EXPORT_METHOD(multiAccountStoreDerived:(NSString *)json
                   callback:(RCTResponseSenderBlock)callback) {
 #if DEBUG
     NSLog(@"MultiAccountStoreDerived() method called");
 #endif
-    NSString *result = StatusgoMultiAccountStoreDerivedAccounts(json);
+    NSString *params = [self addMultiaccountKeystoreDir:json];
+    NSString *result = StatusgoMultiAccountStoreDerivedAccounts(params);
     callback(@[result]);
 }
 
